@@ -14,10 +14,11 @@
       <div class="mark"><img src="./img/Logo.png" alt="BeshBarber"></div>
       <div class="title">
         <div>BeshBarber</div>
-        <small>Premium bookings</small>
+        <small>Sempre Fresco!</small>
       </div>
     </a>
     <div class="actions">
+        <a class="btn small" href="./customer-profile.html">Profilo</a>
         <a class="btn small" href="./barber.html">Dashboard Barbiere</a>
         <button id="btnLogout" class="btn small">Logout</button>
       </div>
@@ -33,6 +34,10 @@
         <div class="bd">
           <div class="row">
             <div class="field">
+              <label>Nome</label>
+              <input id="customerName" type="text" readonly />
+            </div>
+            <div class="field">
               <label>Data</label>
               <input id="day" type="date" />
             </div>
@@ -40,17 +45,11 @@
               <label>Nota (opzionale)</label>
               <input id="note" placeholder="Es. sfumatura alta" />
             </div>
-            <div class="field" style="flex:0 0 160px">
-              <label>&nbsp;</label>
-              <button id="btnLoad" class="btn primary">Carica slot</button>
-            </div>
           </div>
 
-          <div class="sep"></div>
           <div id="slots" class="slots"></div>
 
-          <div class="sep"></div>
-        <div class="row" style="align-items:center; justify-content:space-between">
+        <div class="row" style="align-items:center; justify-content:space-between; margin-top:24px;">
         <div class="p" id="selectedInfo">Nessuno slot selezionato.</div>
         <button id="btnConfirm" class="btn primary" disabled>Conferma prenotazione</button>
         </div>
@@ -68,6 +67,23 @@
         <div class="bd">
           <div id="myBookings" class="list"></div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Dettaglio Prenotazione -->
+  <div id="bookingDetailModal" class="modal" style="display:none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="h2">Dettagli Prenotazione</h2>
+        <button id="closeBookingModal" class="modal-close" style="background:none; border:none; color:var(--text); cursor:pointer; font-size:24px; padding:0;">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="bookingDetailContent"></div>
+      </div>
+      <div class="modal-footer" style="display:flex; gap:10px; justify-content:flex-end;">
+        <button id="closeBookingBtn" class="btn small" style="background:rgba(255,255,255,.1);">Chiudi</button>
+        <button id="removeBookingBtn" class="btn small danger" style="display:none;">Rimuovi Prenotazione</button>
       </div>
     </div>
   </div>
@@ -96,15 +112,46 @@
       window.location.href = "./barber.html";
     }
 
+    // Carica il nome del customer dal profilo
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not logged in");
+      
+      const { data: profile, error } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", user.id)
+        .single();
+      
+      if (error) throw error;
+      
+      $("customerName").value = profile?.full_name || "Non disponibile";
+    } catch (e) {
+      console.error("Error loading customer name:", e);
+      $("customerName").value = "Errore nel caricamento";
+    }
+
     // default: oggi
     const today = new Date();
     $("day").value = today.toISOString().slice(0,10);
+
+    let selectedTime = null; // DICHIARATA QUI per renderla accessibile
+
+    // Helper per tradurre gli stati
+    function translateStatus(status) {
+      const translations = {
+        "pending": "in attesa",
+        "accepted": "accettata",
+        "rejected": "rifiutata"
+      };
+      return translations[status] || status;
+    }
 
     async function loadMyBookings() {
       const { data: { user } } = await supabase.auth.getUser();
       const { data, error } = await supabase
         .from("bookings")
-        .select("id, day, start_time, end_time, status, note, created_at")
+        .select("id, day, start_time, end_time, status, note, rejection_reason, created_at")
         .eq("customer_id", user.id)
         .order("day", { ascending: false })
         .order("start_time", { ascending: true })
@@ -115,21 +162,75 @@
       $("myBookings").innerHTML = (data.length ? "" : `<div class="p">Nessuna prenotazione.</div>`) + data.map(b => {
         const st = b.start_time.slice(0,5);
         const en = b.end_time.slice(0,5);
+        const translatedStatus = translateStatus(b.status);
+        
+        // Se rejected, mostra il motivo. Altrimenti mostra la nota del cliente
+        let detailText = "—";
+        if (b.status === "rejected" && b.rejection_reason) {
+          detailText = "❌ Motivo: " + b.rejection_reason;
+        } else if (b.note) {
+          detailText = "Nota: " + b.note;
+        }
+        
         return `
-          <div class="item">
+          <div class="item" data-booking-id="${b.id}" data-status="${b.status}" data-rejection-reason="${b.rejection_reason || ''}" style="cursor: pointer;">
             <div class="top">
               <div><b>${b.day}</b> • ${st}-${en}</div>
-              <span class="pill ${b.status}">${b.status}</span>
+              <span class="pill ${b.status}">${translatedStatus}</span>
             </div>
-            <div class="meta">${b.note ? "Nota: " + b.note : "—"}</div>
+            <div class="meta">${detailText}</div>
           </div>
         `;
       }).join("");
+
+      // Aggiungi click handler per aprire il detail della prenotazione (RIGENERATI AD OGNI CARICAMENTO)
+      $("myBookings").querySelectorAll(".item").forEach(item => {
+        item.onclick = () => {
+          const bookingId = item.dataset.bookingId;
+          
+          // Trova il booking completo nei dati
+          const booking = data.find(b => b.id === bookingId);
+          if (booking) {
+            showBookingDetail(booking);
+          }
+        };
+      });
+    }
+
+    // Modal per i dettagli della prenotazione
+    function showBookingDetail(booking) {
+      const st = booking.start_time.slice(0,5);
+      const en = booking.end_time.slice(0,5);
+      const translatedStatus = translateStatus(booking.status);
+      
+      let detailHTML = `
+        <p><strong>Data:</strong> ${booking.day}</p>
+        <p><strong>Orario:</strong> ${st} - ${en}</p>
+        <p><strong>Status:</strong> ${translatedStatus}</p>
+      `;
+      
+      if (booking.note) {
+        detailHTML += `<p><strong>Nota:</strong> ${booking.note}</p>`;
+      }
+      
+      if (booking.status === "rejected" && booking.rejection_reason) {
+        detailHTML += `<p style="color: var(--danger); margin-top: 12px;"><strong>Motivo del rifiuto:</strong></p><p style="color: var(--danger);">${booking.rejection_reason}</p>`;
+      }
+      
+      $("bookingDetailContent").innerHTML = detailHTML;
+      
+      // Mostra il bottone "Rimuovi" solo se rejected
+      if (booking.status === "rejected") {
+        $("removeBookingBtn").style.display = "block";
+        $("removeBookingBtn").dataset.bookingId = booking.id;
+      } else {
+        $("removeBookingBtn").style.display = "none";
+      }
+      
+      $("bookingDetailModal").style.display = "flex";
     }
 
     async function loadSlots() {
-  let selectedTime = null;
-
   $("toast").classList.remove("show");
   $("slots").innerHTML = '';
   selectedTime = null;
@@ -193,8 +294,6 @@ $("btnConfirm").onclick = async () => {
   }
 };
 
-$("btnLoad").onclick = loadSlots;
-
 $("day").onchange = async () => {
   try {
     await loadSlots();
@@ -208,6 +307,41 @@ $("day").onchange = async () => {
 $("btnLogout").onclick = async () => {
   await signOut();
   window.location.href = "./login.html";
+};
+
+// Gestione Modal Dettagli Prenotazione
+$("closeBookingModal").onclick = () => {
+  $("bookingDetailModal").style.display = "none";
+};
+
+$("closeBookingBtn").onclick = () => {
+  $("bookingDetailModal").style.display = "none";
+};
+
+$("removeBookingBtn").onclick = async () => {
+  if (!confirm("Sei sicuro di voler rimuovere questa prenotazione rifiutata?")) {
+    return;
+  }
+
+  try {
+    $("removeBookingBtn").disabled = true;
+    const bookingId = $("removeBookingBtn").dataset.bookingId;
+    
+    const { error } = await supabase
+      .from("bookings")
+      .delete()
+      .eq("id", bookingId);
+    
+    if (error) throw error;
+    
+    toast("✓ Prenotazione rimossa.");
+    $("bookingDetailModal").style.display = "none";
+    await loadMyBookings();
+  } catch (e) {
+    toast("✗ " + e.message);
+  } finally {
+    $("removeBookingBtn").disabled = false;
+  }
 };
 
 // init

@@ -14,10 +14,11 @@
       <div class="mark"><img src="./img/Logo.png" alt="BeshBarber"></div>
       <div class="title">
         <div>BeshBarber</div>
-        <small>Premium bookings</small>
+        <small>Sempre Fresco!</small>
       </div>
     </a>
     <div class="actions">
+      <a class="btn small" href="./barber-profile.html">Profilo</a>
       <a class="btn small" href="./app.html">App Cliente</a>
       <button id="btnLogout" class="btn small">Logout</button>
     </div>
@@ -61,11 +62,39 @@
       <div class="card">
         <div class="hd">
           <h1 class="h1">Prenotazioni in attesa</h1>
-          <p class="p">Accetta o rifiuta le richieste (pending).</p>
+          <p class="p">Accetta o rifiuta le richieste (pending) - Ordinate dalla più recente.</p>
         </div>
         <div class="bd">
-          <div id="pending" class="list"></div>
+          <div id="pending" class="list scrollable"></div>
         </div>
+      </div>
+
+      <div class="card">
+        <div class="hd">
+          <h1 class="h1">Prenotazioni Accettate</h1>
+          <p class="p">Completa o segna come no-show.</p>
+        </div>
+        <div class="bd">
+          <div id="accepted" class="list scrollable"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Reject -->
+  <div id="rejectModal" class="modal" style="display:none;";
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="h2">Motivo del rifiuto</h2>
+        <button id="closeRejectModal" class="modal-close" style="background:none; border:none; color:var(--text); cursor:pointer; font-size:24px; padding:0;">✕</button>
+      </div>
+      <div class="modal-body">
+        <label>Spiega al cliente perché rifiuti la prenotazione:</label>
+        <textarea id="rejectionReason" placeholder="Es. Barbiere già pieno per quel giorno, time slot non più disponibile, etc..." style="width:100%; height:100px; padding:10px; border:1px solid var(--line); border-radius:8px; background:rgba(10,14,20,.5); color:var(--text); font-family:var(--font); resize:vertical; margin-top:10px;"></textarea>
+      </div>
+      <div class="modal-footer" style="display:flex; gap:10px; justify-content:flex-end; margin-top:16px;">
+        <button id="cancelRejectModal" class="btn small" style="background:rgba(255,255,255,.1);">Annulla</button>
+        <button id="confirmReject" class="btn small danger">Rifiuta</button>
       </div>
     </div>
   </div>
@@ -73,7 +102,7 @@
   <script type="module">
     import { supabase } from "./js/supabaseClient.js";
     import { signOut, requireAuthOrRedirect, getMyRole } from "./js/auth.js";
-    import { addAvailability, listPendingBookings, setBookingStatus } from "./js/barber.js";
+    import { addAvailability, listPendingBookings, setBookingStatus, completeBooking } from "./js/barber.js";
 
     const $ = (id) => document.getElementById(id);
     const toast = (m) => { $("toast").textContent = m; $("toast").classList.add("show"); };
@@ -94,6 +123,16 @@
 
     const today = new Date();
     $("day").value = today.toISOString().slice(0,10);
+
+    // Helper per tradurre gli stati
+    function translateStatus(status) {
+      const translations = {
+        "pending": "in attesa",
+        "accepted": "accettata",
+        "rejected": "rifiutata"
+      };
+      return translations[status] || status;
+    }
 
     async function loadAvailability() {
       const { data: { user } } = await supabase.auth.getUser();
@@ -123,17 +162,34 @@
     }
 
     async function loadPending() {
-      const dayISO = $("day").value;
-      const rows = await listPendingBookings(dayISO);
+      const rows = await listPendingBookings();
 
-      $("pending").innerHTML = (rows.length ? "" : `<div class="p">Nessuna richiesta pending.</div>`) + rows.map(b => {
+      // Aggiungi JOIN per ottenere i nomi dei clienti
+      const rowsWithNames = await Promise.all(rows.map(async (b) => {
+        const { data: customer, error } = await supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("id", b.customer_id)
+          .single();
+        
+        return {
+          ...b,
+          customer_name: customer?.full_name || "Cliente"
+        };
+      }));
+
+      $("pending").innerHTML = (rowsWithNames.length ? "" : `<div class="p">Nessuna richiesta pending.</div>`) + rowsWithNames.map(b => {
         const st = b.start_time.slice(0,5);
         const en = b.end_time.slice(0,5);
+        const translatedStatus = translateStatus(b.status);
         return `
           <div class="item">
             <div class="top">
-              <div><b>${b.day}</b> • ${st}-${en}</div>
-              <span class="pill pending">pending</span>
+              <div>
+                <b>${b.customer_name}</b>
+                <div class="meta" style="margin-top:2px;">${b.day} • ${st}-${en}</div>
+              </div>
+              <span class="pill pending">${translatedStatus}</span>
             </div>
             <div class="meta">${b.note ? "Nota: " + b.note : "—"}</div>
             <div class="row" style="margin-top:10px">
@@ -148,13 +204,138 @@
         btn.onclick = async () => {
           try {
             btn.disabled = true;
-            const status = btn.dataset.act === "accept" ? "accepted" : "rejected";
-            await setBookingStatus(btn.dataset.id, status);
-            await loadPending();
+            const action = btn.dataset.act;
+            const bookingId = btn.dataset.id;
+            
+            if (action === "accept") {
+              await setBookingStatus(bookingId, "accepted");
+              await loadPending();
+            } else if (action === "reject") {
+              // Apri il modal per il motivo del reject
+              $("rejectModal").bookingId = bookingId;
+              $("rejectModal").style.display = "flex";
+              $("rejectionReason").focus();
+            }
           } catch (e) { toast(e.message); }
           finally { btn.disabled = false; }
         };
       });
+    }
+
+    // Gestione Modal Reject
+    $("closeRejectModal").onclick = () => {
+      $("rejectModal").style.display = "none";
+      $("rejectionReason").value = "";
+    };
+
+    $("cancelRejectModal").onclick = () => {
+      $("rejectModal").style.display = "none";
+      $("rejectionReason").value = "";
+    };
+
+    $("confirmReject").onclick = async () => {
+      const reason = $("rejectionReason").value.trim();
+      if (!reason) {
+        toast("✗ Inserisci un motivo per il rifiuto.");
+        return;
+      }
+
+      try {
+        $("confirmReject").disabled = true;
+        const bookingId = $("rejectModal").bookingId;
+        await setBookingStatus(bookingId, "rejected", reason);
+        toast("✓ Prenotazione rifiutata.");
+        $("rejectModal").style.display = "none";
+        $("rejectionReason").value = "";
+        await loadPending();
+      } catch (e) { 
+        toast("✗ " + e.message); 
+      } finally {
+        $("confirmReject").disabled = false;
+      }
+    };
+
+    async function loadAccepted() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("Not logged in");
+
+        const { data, error } = await supabase
+          .from("bookings")
+          .select("id, day, start_time, customer_id, status, note")
+          .eq("barber_id", user.id)
+          .eq("status", "accepted")
+          .order("day", { ascending: true })
+          .order("start_time", { ascending: true });
+
+        if (error) throw error;
+
+        // Aggiungi JOIN per ottenere i nomi dei clienti
+        const dataWithNames = await Promise.all(data.map(async (b) => {
+          const { data: customer, error } = await supabase
+            .from("profiles")
+            .select("full_name")
+            .eq("id", b.customer_id)
+            .single();
+          
+          return {
+            ...b,
+            customer_name: customer?.full_name || "Cliente"
+          };
+        }));
+
+        $("accepted").innerHTML = (dataWithNames.length ? "" : `<div class="p">Nessuna prenotazione accettata.</div>`) + dataWithNames.map(b => {
+          const st = b.start_time.slice(0,5);
+          const en = new Date(new Date(`2000-01-01T${b.start_time}`).getTime() + 30*60000).toTimeString().slice(0,5);
+          return `
+            <div class="item">
+              <div class="top">
+                <div>
+                  <b>${b.customer_name}</b>
+                  <div class="meta" style="margin-top:2px;">${b.day} • ${st}-${en}</div>
+                </div>
+                <span class="pill ok" style="background:rgba(38,213,102,.15); border-color:rgba(38,213,102,.3); color:var(--ok);">accettata</span>
+              </div>
+              <div class="meta">${b.note ? "Nota: " + b.note : "—"}</div>
+              <div class="row" style="margin-top:10px">
+                <button class="btn small ok" data-complete="${b.id}">✓ Completato</button>
+                <button class="btn small danger" data-noshow="${b.id}">✗ No-show</button>
+              </div>
+            </div>
+          `;
+        }).join("");
+
+        // Aggiungi click handlers
+        $("accepted").querySelectorAll("[data-complete]").forEach(btn => {
+          btn.onclick = async () => {
+            try {
+              btn.disabled = true;
+              await completeBooking(btn.dataset.complete, false);
+              toast("✓ Taglio completato! XP +10");
+              await loadAccepted();
+              await loadPending();
+            } catch (e) { toast("✗ " + e.message); }
+            finally { btn.disabled = false; }
+          };
+        });
+
+        $("accepted").querySelectorAll("[data-noshow]").forEach(btn => {
+          btn.onclick = async () => {
+            if (!confirm("Sei sicuro? Il cliente non riceverà XP.")) return;
+            try {
+              btn.disabled = true;
+              await completeBooking(btn.dataset.noshow, true);
+              toast("✓ Segnato come no-show.");
+              await loadAccepted();
+              await loadPending();
+            } catch (e) { toast("✗ " + e.message); }
+            finally { btn.disabled = false; }
+          };
+        });
+      } catch (e) {
+        console.error("Error loading accepted bookings:", e);
+        toast("✗ Errore: " + e.message);
+      }
     }
 
     $("btnAddAv").onclick = async () => {
@@ -199,6 +380,7 @@
     // init
     await loadAvailability();
     await loadPending();
+    await loadAccepted();
   </script>
 
   <footer>

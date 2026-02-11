@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Profilo Cliente • BeshBarber</title>
+  <link rel="stylesheet" href="./css/style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <meta name="theme-color" content="#0a0e14">
+</head>
+<body>
+  <div class="nav">
+    <a class="brand" href="./app.html" title="Home">
+      <div class="mark"><img src="./img/Logo.png" alt="BeshBarber"></div>
+      <div class="title">
+        <div>BeshBarber</div>
+        <small>Sempre Fresco!</small>
+      </div>
+    </a>
+    <div class="actions">
+      <a class="btn small" href="./app.html">Dashboard</a>
+      <button id="btnLogout" class="btn small">Logout</button>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="grid">
+      <!-- Card Profilo -->
+      <div class="card">
+        <div class="hd">
+          <h1 class="h1">Profilo Cliente</h1>
+          <p class="p">Le tue statistiche e il tuo livello di fedeltà.</p>
+        </div>
+        <div class="bd">
+          <div style="display: flex; gap: 32px; align-items: center;">
+            <!-- Stats sinistra -->
+            <div style="flex: 1;">
+              <div style="margin-bottom: 24px;">
+                <p style="color: var(--muted); font-size: 12px; margin: 0 0 4px 0;">NOME</p>
+                <p style="font-size: 24px; font-weight: 700; margin: 0;" id="clientName">—</p>
+              </div>
+              
+              <div style="margin-bottom: 24px;">
+                <p style="color: var(--muted); font-size: 12px; margin: 0 0 4px 0;">EMAIL</p>
+                <p style="font-size: 14px; margin: 0;" id="clientEmail">—</p>
+              </div>
+            </div>
+
+            <!-- Stats destra -->
+            <div style="flex: 1; border-left: 1px solid var(--line); padding-left: 32px;">
+              <div style="margin-bottom: 24px;">
+                <p style="color: var(--accent); font-size: 12px; margin: 0 0 4px 0; font-weight: 600;">TAGLI COMPLETATI</p>
+                <p style="font-size: 32px; font-weight: 800; color: var(--accent); margin: 0;" id="totalCuts">0</p>
+              </div>
+              
+              <div>
+                <p style="color: var(--muted); font-size: 12px; margin: 0 0 4px 0;">LIVELLO</p>
+                <div style="display: flex; gap: 12px; align-items: center;">
+                  <p style="font-size: 28px; font-weight: 800; color: var(--ok); margin: 0;" id="clientLevel">1</p>
+                  <span style="font-size: 12px; color: var(--muted);">|</span>
+                  <p style="font-size: 12px; color: var(--muted); margin: 0;" id="xpText">0 / 100 XP</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Progress Bar XP -->
+          <div style="margin-top: 32px;">
+            <p style="color: var(--muted); font-size: 12px; margin: 0 0 8px 0;">ESPERIENZA</p>
+            <div style="width: 100%; height: 12px; background: rgba(255,255,255,.05); border-radius: 999px; overflow: hidden; border: 1px solid var(--line);">
+              <div id="xpBar" style="height: 100%; background: linear-gradient(90deg, var(--ok), var(--accent)); width: 0%; transition: width 0.3s ease;"></div>
+            </div>
+          </div>
+
+          <!-- Badge Fedeltà -->
+          <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--line);">
+            <p style="color: var(--muted); font-size: 12px; margin: 0 0 12px 0;">BADGE</p>
+            <div id="loyaltyBadge" style="display: inline-block; padding: 12px 20px; background: rgba(38,213,102,.15); border: 1px solid rgba(38,213,102,.3); border-radius: 8px; color: var(--ok); font-weight: 600; font-size: 14px;">👤 Cliente Fedele</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tagli Completati -->
+      <div class="card">
+        <div class="hd">
+          <h1 class="h1">Tagli Recenti</h1>
+          <p class="p">Ultimi 10 tagli completati.</p>
+        </div>
+        <div class="bd">
+          <div id="recentCuts" class="list scrollable"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <footer>
+    <p>© 2025 BeshBarber • Premium Booking System</p>
+    <p>by <strong>JB®</strong></p>
+  </footer>
+
+  <script type="module">
+    import { supabase } from "./js/supabaseClient.js";
+    import { signOut, requireAuthOrRedirect, getMyRole } from "./js/auth.js";
+
+    const $ = (id) => document.getElementById(id);
+    const toast = (m) => { $("toast").textContent = m; $("toast").classList.add("show"); };
+
+    await requireAuthOrRedirect("./login.html");
+    
+    let role;
+    try {
+      role = await getMyRole();
+    } catch (e) {
+      console.error("Error getting role:", e);
+      window.location.href = "./login.html";
+    }
+    
+    if (role !== "customer") {
+      window.location.href = "./barber.html";
+    }
+
+    async function loadProfile() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("Not logged in");
+
+        // Carica profilo
+        const { data: profile, error: profileErr } = await supabase
+          .from("profiles")
+          .select("full_name, total_cuts, current_xp, current_level")
+          .eq("id", user.id)
+          .single();
+
+        if (profileErr) throw profileErr;
+
+        $("clientName").textContent = profile?.full_name || "—";
+        $("clientEmail").textContent = user.email;
+        $("totalCuts").textContent = profile?.total_cuts || 0;
+        $("clientLevel").textContent = profile?.current_level || 1;
+
+        // Calcola XP per il livello
+        const xpPerLevel = 100;
+        const currentXP = profile?.current_xp || 0;
+        const xpNeeded = xpPerLevel * (profile?.current_level || 1);
+        const xpProgress = (currentXP % xpPerLevel);
+        const xpPercent = (xpProgress / xpPerLevel) * 100;
+
+        $("xpText").textContent = `${xpProgress} / ${xpPerLevel} XP`;
+        $("xpBar").style.width = xpPercent + "%";
+
+        // Determina badge di fedeltà
+        const level = profile?.current_level || 1;
+        let badge = "👤 Cliente Fedele";
+        let bgColor = "rgba(38,213,102,.15)";
+        let borderColor = "rgba(38,213,102,.3)";
+        let textColor = "var(--ok)";
+
+        if (level >= 6) {
+          badge = "⭐ VIP Cliente";
+          bgColor = "rgba(212,199,125,.15)";
+          borderColor = "rgba(212,199,125,.3)";
+          textColor = "var(--accent)";
+        } else if (level >= 3) {
+          badge = "👥 Cliente Frequente";
+          bgColor = "rgba(48,213,200,.15)";
+          borderColor = "rgba(48,213,200,.3)";
+          textColor = "#30d5c8";
+        }
+
+        $("loyaltyBadge").innerHTML = badge;
+        $("loyaltyBadge").style.background = bgColor;
+        $("loyaltyBadge").style.borderColor = borderColor;
+        $("loyaltyBadge").style.color = textColor;
+
+        // Carica tagli recenti
+        const { data: recentCuts, error: cutsErr } = await supabase
+          .from("bookings")
+          .select("id, day, start_time, status, barber_id")
+          .eq("customer_id", user.id)
+          .eq("status", "completed")
+          .order("updated_at", { ascending: false })
+          .limit(10);
+
+        if (cutsErr) throw cutsErr;
+
+        // JOIN per ottenere nomi barbieri
+        const cutsWithNames = await Promise.all((recentCuts || []).map(async (cut) => {
+          const { data: barber, error } = await supabase
+            .from("profiles")
+            .select("full_name")
+            .eq("id", cut.barber_id)
+            .single();
+          
+          if (error) {
+            console.error("Error fetching barber name for:", cut.barber_id, error);
+          }
+          
+          return {
+            ...cut,
+            barber_name: barber?.full_name || "Barbiere"
+          };
+        }));
+
+        $("recentCuts").innerHTML = (cutsWithNames?.length ? "" : `<div class="p">Nessun taglio completato.</div>`) + (cutsWithNames || []).map(cut => {
+          const st = cut.start_time.slice(0, 5);
+          return `
+            <div class="item">
+              <div class="top">
+                <div>
+                  <b>${cut.barber_name}</b>
+                  <div class="meta" style="margin-top:2px;">${cut.day} • ${st}</div>
+                </div>
+                <span class="pill ok" style="background:rgba(38,211,102,.15); border-color:rgba(38,211,102,.3); color:var(--ok);">✓ Completato</span>
+              </div>
+            </div>
+          `;
+        }).join("");
+
+      } catch (e) {
+        console.error("Error loading profile:", e);
+        toast("✗ Errore nel caricamento del profilo: " + e.message);
+      }
+    }
+
+    $("btnLogout").onclick = async () => {
+      await signOut();
+      window.location.href = "./login.html";
+    };
+
+    // Init
+    await loadProfile();
+  </script>
+
+  <style>
+    .pill.ok {
+      background: rgba(38, 211, 102, .15);
+      border-color: rgba(38, 211, 102, .3);
+      color: var(--ok);
+    }
+  </style>
+</body>
+</html>
