@@ -10,41 +10,6 @@ Piattaforma di prenotazioni per barbieri con autenticazione Supabase e sicurezza
 - 📱 Responsive design (mobile/tablet/desktop)
 - 🎨 Dark theme premium
 
-## 🚀 Quick Start (20 minuti)
-
-### 1. Aggiorna Supabase Keys
-```javascript
-// Apri: js/supabaseClient.js
-// Aggiorna le tue chiavi da https://app.supabase.com → Settings → API
-
-const SUPABASE_URL = "https://xxxxx.supabase.co";
-const SUPABASE_ANON_KEY = "eyJ...";
-```
-
-### 2. Setup RLS Security (IMPORTANTE!)
-```bash
-# Apri: SUPABASE_RLS_SETUP.md
-# Copia il codice SQL
-# Incolla in Supabase → SQL Editor → Esegui
-# Questo protegge i dati a livello database!
-```
-
-### 3. Deploy a GitHub Pages
-```bash
-git add .
-git commit -m "BeshBarber ready"
-git push origin main
-```
-
-**Poi in GitHub:**
-- Repository → Settings → Pages
-- Source: `Deploy from a branch`
-- Branch: `main` + `/root`
-- Save
-
-✅ Sito live in 2-5 minuti!
-
----
 
 ## 📁 File Struttura
 
@@ -70,21 +35,6 @@ git push origin main
 └── README.md                     # Questo file
 ```
 
----
-
-## 🔐 Sicurezza
-
-Le chiavi Supabase sono **pubbliche** (ANON_KEY).
-Questo è **SAFE** perché usiamo **Row Level Security (RLS)**:
-
-- ❌ Nessuno legge dati di altri utenti
-- ❌ Nessuno modifica prenotazioni altrui
-- ✅ Solo dati propri sono visibili
-- ✅ Senza auth = niente accesso
-
-**CRUCIALE**: Esegui setup RLS in `SUPABASE_RLS_SETUP.md`
-
----
 
 ## 🎮 Come Funziona
 
@@ -98,27 +48,6 @@ Questo è **SAFE** perché usiamo **Row Level Security (RLS)**:
 1. Accedi con email/password
 2. Crea disponibilità (date + orari)
 3. Gestisci prenotazioni (accept/reject)
-
----
-
-## 💻 Local Development
-
-```bash
-# Avvia server
-python -m http.server 8000  # Windows
-python3 -m http.server 8000 # Mac/Linux
-
-# Apri browser
-http://localhost:8000
-```
-
----
-
-## 💵 Costo
-
-- GitHub Pages: Gratis
-- Supabase free tier: Gratis (500MB DB, 50k users)
-- **Total: $0/mese**
 
 ---
 
