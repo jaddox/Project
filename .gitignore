@@ -15,14 +15,16 @@
 node_modules/
 npm-debug.log
 
-# Supabase/secrets
-supabase_keys.json
-*.key
-*.pem
-
 # Build artifacts
 dist/
 build/
 
 # OS
 Thumbs.db
+
+# ⚠️ ATTENZIONE: js/supabaseClient.js contiene chiavi PUBBLICHE
+# Questo è SAFE perché:
+# - Sono chiavi ANON (public-only, client-side)
+# - La sicurezza viene da RLS di Supabase (server-side)
+# - Non aggiungere a .gitignore
+# Leggi: SUPABASE_RLS_SETUP.md

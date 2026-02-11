@@ -1,170 +1,149 @@
 # BeshBarber - Premium Booking System
 
-Una moderna piattaforma di prenotazioni per barbieri, costruita con HTML5, CSS3, JavaScript vanilla e Supabase.
+Piattaforma di prenotazioni per barbieri con autenticazione Supabase e sicurezza RLS.
 
 ## 🎯 Caratteristiche
 
-- ✂️ **Autenticazione a due ruoli**: Cliente (per prenotare) e Barbiere (per gestire)
-- 📅 **Sistema di prenotazioni**: Slot da 30 minuti con gestione automatica
-- 🔐 **Sicurezza**: Autenticazione via Supabase, password reset
-- 📱 **Responsive design**: Perfetto su mobile, tablet e desktop
-- 🎨 **Design moderno**: Interfaccia premium con gradiente dorato
+- ✂️ Due ruoli: Cliente + Barbiere
+- 📅 Sistema prenotazioni slot 30 min
+- 🔐 Autenticazione email/password + password recovery
+- 📱 Responsive design (mobile/tablet/desktop)
+- 🎨 Dark theme premium
 
-## 🚀 Setup
+## 🚀 Quick Start (20 minuti)
 
-### Prerequisiti
-- Browser moderno (Chrome, Firefox, Safari, Edge)
-- Account Supabase
-
-### Installazione
-
-1. **Clona il repository**
-```bash
-git clone https://github.com/tuonome/beshbarber.git
-cd beshbarber
-```
-
-2. **Configura Supabase**
-   - Crea un progetto su [supabase.com](https://supabase.com)
-   - Copia l'URL e la Anon Key dal dashboard
-   - Aggiorna `js/supabaseClient.js`:
-
+### 1. Aggiorna Supabase Keys
 ```javascript
-const SUPABASE_URL = "tuo_url_qui";
-const SUPABASE_ANON_KEY = "tua_key_qui";
+// Apri: js/supabaseClient.js
+// Aggiorna le tue chiavi da https://app.supabase.com → Settings → API
+
+const SUPABASE_URL = "https://xxxxx.supabase.co";
+const SUPABASE_ANON_KEY = "eyJ...";
 ```
 
-3. **Setup del database**
-   - Vai su SQL Editor in Supabase
-   - Crea le tabelle necessarie:
-
-```sql
--- Tabella Profiles
-CREATE TABLE profiles (
-  id UUID PRIMARY KEY,
-  full_name TEXT,
-  role TEXT DEFAULT 'customer',
-  created_at TIMESTAMP DEFAULT NOW()
-);
-
--- Tabella Availability (per barbieri)
-CREATE TABLE availability (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  barber_id UUID REFERENCES auth.users(id),
-  day DATE,
-  start_time TIME,
-  end_time TIME,
-  is_active BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMP DEFAULT NOW()
-);
-
--- Tabella Bookings (prenotazioni clienti)
-CREATE TABLE bookings (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  customer_id UUID REFERENCES auth.users(id),
-  barber_id UUID REFERENCES auth.users(id),
-  day DATE,
-  start_time TIME,
-  end_time TIME,
-  note TEXT,
-  status TEXT DEFAULT 'pending',
-  created_at TIMESTAMP DEFAULT NOW()
-);
+### 2. Setup RLS Security (IMPORTANTE!)
+```bash
+# Apri: SUPABASE_RLS_SETUP.md
+# Copia il codice SQL
+# Incolla in Supabase → SQL Editor → Esegui
+# Questo protegge i dati a livello database!
 ```
 
-4. **Avvia il server locale**
-   - Su Windows: `python -m http.server 8000`
-   - Su Mac/Linux: `python3 -m http.server 8000`
-   - Apri `http://localhost:8000` nel browser
-
-## 📖 Struttura del Progetto
-
-```
-├── index.html           # Landing (in futuro)
-├── login.html           # Login cliente
-├── barber-login.html    # Login barbiere
-├── app.html             # Dashboard cliente
-├── barber.html          # Dashboard barbiere
-├── forgot-password.html # Recupero password
-├── reset-password.html  # Reset password
-├── css/
-│   └── style.css        # Stili globali
-├── js/
-│   ├── auth.js          # Funzioni autenticazione
-│   ├── customer.js      # Logica cliente
-│   ├── barber.js        # Logica barbiere
-│   └── supabaseClient.js# Configurazione Supabase
-├── img/
-│   └── Logo.png         # Logo BeshBarber
-└── README.md
+### 3. Deploy a GitHub Pages
+```bash
+git add .
+git commit -m "BeshBarber ready"
+git push origin main
 ```
 
-## 🔑 Flusso di Autenticazione
+**Poi in GitHub:**
+- Repository → Settings → Pages
+- Source: `Deploy from a branch`
+- Branch: `main` + `/root`
+- Save
 
-### Cliente
-1. `login.html` → Signup/Login
-2. `app.html` → Prenota slot disponibili
-3. Barbiere accetta/rifiuta prenotazione
-
-### Barbiere
-1. `barber-login.html` → Signup/Login
-2. `barber.html` → Gestisci disponibilità e prenotazioni
-3. Visualizza richieste pending e accetta/rifiuta
-
-## 🛠️ Tecnologie Utilizzate
-
-- **Frontend**: HTML5, CSS3, JavaScript ES6+
-- **Backend**: [Supabase](https://supabase.com) (PostgreSQL + Auth)
-- **Styling**: CSS Grid, Flexbox, Gradenti
-- **Font**: Inter (Google Fonts)
-
-## 🔐 Variabili di Ambiente
-
-Crea un file `.env` (o .env.local) se usi un build tool:
-
-```
-VITE_SUPABASE_URL=https://xxxxx.supabase.co
-VITE_SUPABASE_ANON_KEY=xxxxx
-```
-
-⚠️ **Non committare mai le chiavi Supabase nel repository!** Usa `.gitignore`
-
-## 📱 Testing
-
-### Test Desktop
-- Apri due browser: uno per cliente, uno per barbiere
-- Simula il flusso di prenotazione
-
-### Test Mobile
-- Usa Chrome DevTools: F12 → Toggle device toolbar
-- Verifica responsive su iPhone, Android
-
-## 🐛 Troubleshooting
-
-**"Not authenticated" loop?**
-- Verifica che le chiavi Supabase siano corrette in `supabaseClient.js`
-- Controlla che la tabella `profiles` esista e abbia role column
-
-**Email di reset non arriva?**
-- Abilita SMTP in Supabase → Authentication → Email Templates
-- Verifica indirizzo email di test nel dashboard
-
-**Slot non appaiono?**
-- Verifica che il barbiere abbia aggiunto disponibilità per quella data
-- Controlla lo stato `is_active` nella tabella `availability`
-
-## 📧 Contatti
-
-Per supporto o feature requests: [il tuo email qui]
-
-## 📄 Licenza
-
-Progetto interno - By JB® 2025
+✅ Sito live in 2-5 minuti!
 
 ---
 
-**Nota**: Questo progetto è in fase di sviluppo. Per hostare in produzione:
-1. Usa un reverse proxy (Nginx/Apache)
-2. Abilita HTTPS
-3. Configura CORS in Supabase
-4. Setup backup database regolari
+## 📁 File Struttura
+
+```
+├── login.html                    # Cliente login
+├── barber-login.html             # Barbiere login
+├── app.html                      # Dashboard cliente
+├── barber.html                   # Dashboard barbiere
+├── forgot-password.html          # Recovery password
+├── reset-password.html           # Reset password
+├── js/
+│   ├── supabaseClient.js         # Config Supabase (UPDATE!)
+│   ├── auth.js                   # Autenticazione
+│   ├── customer.js               # Logica cliente
+│   └── barber.js                 # Logica barbiere
+├── css/
+│   └── style.css                 # Stili responsive
+├── img/
+│   └── Logo.png                  # Logo
+├── SUPABASE_RLS_SETUP.md         # Setup RLS (CRITICAL!)
+├── .env.example                  # Template env
+├── .gitignore                    # Git exclusions
+└── README.md                     # Questo file
+```
+
+---
+
+## 🔐 Sicurezza
+
+Le chiavi Supabase sono **pubbliche** (ANON_KEY).
+Questo è **SAFE** perché usiamo **Row Level Security (RLS)**:
+
+- ❌ Nessuno legge dati di altri utenti
+- ❌ Nessuno modifica prenotazioni altrui
+- ✅ Solo dati propri sono visibili
+- ✅ Senza auth = niente accesso
+
+**CRUCIALE**: Esegui setup RLS in `SUPABASE_RLS_SETUP.md`
+
+---
+
+## 🎮 Come Funziona
+
+### Cliente
+1. Accedi con email/password
+2. Scegli data → visualizza slot disponibili
+3. Prenota (status: pending)
+4. Aspetta che barbiere accetti
+
+### Barbiere
+1. Accedi con email/password
+2. Crea disponibilità (date + orari)
+3. Gestisci prenotazioni (accept/reject)
+
+---
+
+## 💻 Local Development
+
+```bash
+# Avvia server
+python -m http.server 8000  # Windows
+python3 -m http.server 8000 # Mac/Linux
+
+# Apri browser
+http://localhost:8000
+```
+
+---
+
+## 💵 Costo
+
+- GitHub Pages: Gratis
+- Supabase free tier: Gratis (500MB DB, 50k users)
+- **Total: $0/mese**
+
+---
+
+## 🔗 Link Importanti
+
+- Supabase: https://app.supabase.com
+- GitHub: https://github.com
+- Sito Live: https://tuonome.github.io/beshbarber/
+
+---
+
+## 📖 Documentazione
+
+- `SUPABASE_RLS_SETUP.md` - Setup RLS security ⚠️ **CRITICAL!**
+- `.env.example` - Template variabili ambiente
+
+---
+
+## 🛠️ Tech Stack
+
+- Frontend: HTML5 + CSS3 + JavaScript ES6
+- Backend: Supabase (PostgreSQL + Auth)
+- Hosting: GitHub Pages
+- Security: Row Level Security (RLS)
+
+---
+
+**By JB® 2025 - BeshBarber Premium Booking System**
