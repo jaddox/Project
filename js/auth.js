@@ -70,7 +70,7 @@ export async function checkAuthAndRedirect() {
     if (role === "barber") {
       window.location.href = "./barber.html";
     } else if (role === "customer") {
-      window.location.href = "./app.html";
+      window.location.href = "./index.html";
     }
     return true;
   } catch (e) {

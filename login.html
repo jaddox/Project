@@ -10,7 +10,7 @@
 </head>
 <body class="auth-page">
   <div class="nav">
-    <a class="brand" href="./app.html" title="Home">
+    <a class="brand" href="./index.html" title="Home">
       <div class="mark"><img src="./img/Logo.png" alt="BeshBarber"></div>
       <div class="title">
         <div>BeshBarber</div>
@@ -162,7 +162,7 @@
 
         await signIn(email, password);
         const role = await getMyRole();
-        window.location.href = (role === "barber") ? "./barber.html" : "./app.html";
+        window.location.href = (role === "barber") ? "./barber.html" : "./index.html";
       } catch (e) {
         toast("✗ " + e.message);
         $("btnLogin").disabled = false;
