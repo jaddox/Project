@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>App Cliente • Prenotazioni</title>
+  <link rel="stylesheet" href="./css/style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <meta name="theme-color" content="#0a0e14">
+</head>
+<body>
+  <div class="nav">
+    <a class="brand" href="./app.html" title="Home">
+      <div class="mark"><img src="./img/Logo.png" alt="BeshBarber"></div>
+      <div class="title">
+        <div>BeshBarber</div>
+        <small>Premium bookings</small>
+      </div>
+    </a>
+    <div class="actions">
+        <a class="btn small" href="./barber.html">Dashboard Barbiere</a>
+        <button id="btnLogout" class="btn small">Logout</button>
+      </div>
+    </div>
+
+    <div class="container">
+      <div class="grid">
+      <div class="card">
+        <div class="hd">
+          <h1 class="h1">Prenota</h1>
+          <p class="p">Scegli una data e prenota uno slot disponibile (30 minuti).</p>
+        </div>
+        <div class="bd">
+          <div class="row">
+            <div class="field">
+              <label>Data</label>
+              <input id="day" type="date" />
+            </div>
+            <div class="field">
+              <label>Nota (opzionale)</label>
+              <input id="note" placeholder="Es. sfumatura alta" />
+            </div>
+            <div class="field" style="flex:0 0 160px">
+              <label>&nbsp;</label>
+              <button id="btnLoad" class="btn primary">Carica slot</button>
+            </div>
+          </div>
+
+          <div class="sep"></div>
+          <div id="slots" class="slots"></div>
+
+          <div class="sep"></div>
+        <div class="row" style="align-items:center; justify-content:space-between">
+        <div class="p" id="selectedInfo">Nessuno slot selezionato.</div>
+        <button id="btnConfirm" class="btn primary" disabled>Conferma prenotazione</button>
+        </div>
+
+
+          <div id="toast" class="toast"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="hd">
+          <h1 class="h1">Le mie prenotazioni</h1>
+          <p class="p">Qui vedi lo stato: pending / accepted / rejected.</p>
+        </div>
+        <div class="bd">
+          <div id="myBookings" class="list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { supabase } from "./js/supabaseClient.js";
+    import { signOut, requireAuthOrRedirect, getMyRole } from "./js/auth.js";
+    import { getSlotsForDay, createBooking } from "./js/customer.js";
+
+    const BARBER_ID = "d3b86c7e-7ee8-4d05-8523-022ce4536125"; 
+
+    const $ = (id) => document.getElementById(id);
+    const toast = (m) => { $("toast").textContent = m; $("toast").classList.add("show"); };
+
+    await requireAuthOrRedirect("./login.html");
+    
+    let role;
+    try {
+      role = await getMyRole();
+    } catch (e) {
+      console.error("Error getting role:", e);
+      window.location.href = "./login.html";
+    }
+    
+    if (role !== "customer") {
+      window.location.href = "./barber.html";
+    }
+
+    // default: oggi
+    const today = new Date();
+    $("day").value = today.toISOString().slice(0,10);
+
+    async function loadMyBookings() {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data, error } = await supabase
+        .from("bookings")
+        .select("id, day, start_time, end_time, status, note, created_at")
+        .eq("customer_id", user.id)
+        .order("day", { ascending: false })
+        .order("start_time", { ascending: true })
+        .limit(20);
+
+      if (error) throw error;
+
+      $("myBookings").innerHTML = (data.length ? "" : `<div class="p">Nessuna prenotazione.</div>`) + data.map(b => {
+        const st = b.start_time.slice(0,5);
+        const en = b.end_time.slice(0,5);
+        return `
+          <div class="item">
+            <div class="top">
+              <div><b>${b.day}</b> • ${st}-${en}</div>
+              <span class="pill ${b.status}">${b.status}</span>
+            </div>
+            <div class="meta">${b.note ? "Nota: " + b.note : "—"}</div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    async function loadSlots() {
+  let selectedTime = null;
+
+  $("toast").classList.remove("show");
+  $("slots").innerHTML = '';
+  selectedTime = null;
+  $("selectedInfo").textContent = "Nessuno slot selezionato.";
+  $("btnConfirm").disabled = true;
+
+  const dayISO = $("day").value;
+  if (!dayISO) {
+    $("slots").innerHTML = `<div class="p">Seleziona una data.</div>`;
+    return;
+  }
+
+  try {
+    const slots = await getSlotsForDay(BARBER_ID, dayISO);
+
+    if (!slots.length) {
+      $("slots").innerHTML = `<div class="p">Nessuno slot disponibile per questa data.</div>`;
+      return;
+    }
+
+    $("slots").innerHTML = slots.map(t => `
+      <div class="slot" data-time="${t}">
+        <div>
+          <b>${t}</b>
+          <div class="tag">30 minuti</div>
+        </div>
+        <span class="badge">Disponibile</span>
+      </div>
+    `).join("");
+
+    $("slots").querySelectorAll(".slot").forEach(el => {
+      el.onclick = () => {
+        $("slots").querySelectorAll(".slot").forEach(x => x.classList.remove("selected"));
+        el.classList.add("selected");
+        selectedTime = el.dataset.time;
+        $("selectedInfo").textContent = `Selezionato: ${dayISO} • ${selectedTime} (30 min)`;
+        $("btnConfirm").disabled = false;
+      };
+    });
+  } catch (e) {
+    $("slots").innerHTML = `<div class="p" style="color: var(--danger);">Errore: ${e.message}</div>`;
+  }
+}
+
+$("btnConfirm").onclick = async () => {
+  const dayISO = $("day").value;
+  if (!dayISO || !selectedTime) return;
+  try {
+    $("btnConfirm").disabled = true;
+    await createBooking(BARBER_ID, dayISO, selectedTime, $("note").value.trim());
+    toast("✓ Prenotazione inviata (pending). Attendi la conferma del barbiere.");
+    $("note").value = "";
+    selectedTime = null;
+    await loadSlots();
+    await loadMyBookings();
+  } catch (e) {
+    toast("✗ " + e.message);
+    $("btnConfirm").disabled = false;
+    // Ricarica gli slot per mostrare lo stato aggiornato
+    await loadSlots();
+  }
+};
+
+$("btnLoad").onclick = loadSlots;
+
+$("day").onchange = async () => {
+  try {
+    await loadSlots();
+    $("selectedInfo").textContent = "Nessuno slot selezionato.";
+    $("btnConfirm").disabled = true;
+  } catch (e) {
+    toast("✗ Errore nel caricamento slot: " + e.message);
+  }
+};
+
+$("btnLogout").onclick = async () => {
+  await signOut();
+  window.location.href = "./login.html";
+};
+
+// init
+await loadSlots();
+await loadMyBookings();
+  </script>
+
+  <footer>
+    <p>© 2025 BeshBarber • Premium Booking System</p>
+    <p>by <strong>JB®</strong></p>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Login • Prenotazioni</title>
+  <link rel="stylesheet" href="./css/style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <meta name="theme-color" content="#0a0e14">
+</head>
+<body class="auth-page">
+  <div class="nav">
+    <a class="brand" href="./app.html" title="Home">
+      <div class="mark"><img src="./img/Logo.png" alt="BeshBarber"></div>
+      <div class="title">
+        <div>BeshBarber</div>
+        <small>Premium bookings</small>
+      </div>
+    </a>
+    <div class="actions">
+      <a class="btn small" href="./barber-login.html">Area Barbiere</a>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="grid single">
+      <div class="card">
+        <div class="hd">
+          <h1 class="h1">Accedi</h1>
+          <p class="p">Entra con email e password per prenotare il tuo taglio Fresco!.</p>
+        </div>
+        <div class="bd">
+          <div class="row">
+            <div class="field">
+              <label>Email</label>
+              <input id="email" type="email" placeholder="nome@mail.com" />
+            </div>
+            <div class="field">
+              <label>Password</label>
+              <input id="password" type="password" placeholder="••••••••" />
+            </div>
+            <div style="align-self: flex-end; margin-bottom: 8px;">
+              <a href="./forgot-password.html" class="link-small">Password dimenticata?</a>
+            </div>
+          </div>
+
+          <div class="sep"></div>
+
+          <div id="signupFields" style="display:none;">
+            <div class="row">
+              <div class="field">
+                <label>Nome Completo</label>
+                <input id="fullName" type="text" placeholder="Marco Rossi" />
+              </div>
+            </div>
+
+            <div class="row">
+              <label class="terms"><input id="terms" type="checkbox" /> Accetto le <a href="#" id="termsLink" class="link-terms">condizioni</a></label>
+            </div>
+          </div>
+
+          <div class="row">
+            <button id="btnLogin" class="btn primary">Login</button>
+            <button id="btnSignup" class="btn">Registrati</button>
+          </div>
+
+          <div id="toast" class="toast"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal delle condizioni -->
+  <div id="termsModal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Condizioni di Utilizzo</h2>
+        <button id="closeModal" class="modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <h3>1. Non Divulgazione (Non-Disclosure)</h3>
+        <p>Ti impegni a non divulgare informazioni personali o dati relativi a BeshBarber a terzi senza autorizzazione. Le informazioni fornite rimangono strettamente confidenziali e riservate.</p>
+
+        <h3>2. Riservatezza (Confidentiality)</h3>
+        <p>Tutti i dati personali, le prenotazioni e le comunicazioni sono trattate con la massima riservatezza. Accetti che BeshBarber possa archiviare e utilizzare i tuoi dati secondo le normative sulla privacy.</p>
+
+        <h3>3. Educazione e Rispetto (Respect)</h3>
+        <p>Ti impegni a mantenere un comportamento educato e rispettoso verso i barbieri, gli altri clienti e lo staff. Ogni forma di molestia, linguaggio offensivo o comportamento inappropriato non sarà tollerato e potrebbe comportare la sospensione dell'account.</p>
+
+        <h3>4. Trattamento dei Dati</h3>
+        <p>I tuoi dati personali verranno utilizzati esclusivamente per:</p>
+        <ul>
+          <li>Gestire le tue prenotazioni e il servizio di booking</li>
+          <li>Migliorare l'esperienza utente del sito</li>
+          <li>Inviare notifiche relative alle tue prenotazioni</li>
+          <li>Analizzare l'utilizzo del sito per miglioramenti futuri</li>
+        </ul>
+        <p>I tuoi dati <strong>non saranno mai venduti a terzi</strong> e verranno conservati in conformità alle leggi sulla privacy (GDPR e normative italiane).</p>
+
+        <h3>5. Limitazione di Responsabilità</h3>
+        <p>BeshBarber si impegna a mantenere il servizio disponibile, ma non è responsabile per interruzioni dovute a fattori tecnici, manutenzione o circostanze al di là del nostro controllo.</p>
+
+        <h3>6. Accettazione dei Termini</h3>
+        <p>Procedendo con la registrazione, dichiari di aver letto e accettato integralmente questi termini e condizioni.</p>
+      </div>
+      <div class="modal-footer">
+        <button id="acceptTerms" class="btn primary">Accetto</button>
+        <button id="declineTerms" class="btn">Rifiuto</button>
+      </div>
+    </div>
+  </div>
+  </div>
+
+  <script type="module">
+    import { signIn, signUp, getMyRole } from "./js/auth.js";
+
+    const $ = (id) => document.getElementById(id);
+    const toast = (m) => { $("toast").textContent = m; $("toast").classList.add("show"); setTimeout(() => $("toast").classList.remove("show"), 3500); };
+
+    // Modal logica
+    $("termsLink").onclick = (e) => {
+      e.preventDefault();
+      $("termsModal").style.display = "flex";
+    };
+
+    const closeTermsModal = () => {
+      $("termsModal").style.display = "none";
+    };
+
+    $("closeModal").onclick = closeTermsModal;
+
+    $("declineTerms").onclick = closeTermsModal;
+
+    $("acceptTerms").onclick = () => {
+      $("terms").checked = true;
+      closeTermsModal();
+    };
+
+    $("termsModal").onclick = (e) => {
+      if (e.target === $("termsModal")) {
+        closeTermsModal();
+      }
+    };
+
+    const showSignupFields = (show = true) => {
+      const el = $("signupFields");
+      if (!el) return;
+      el.style.display = show ? "block" : "none";
+      $("btnSignup").textContent = show ? "Conferma Registrazione" : "Registrati";
+      $("btnLogin").disabled = show;
+    };
+
+    $("btnLogin").onclick = async () => {
+      try {
+        $("btnLogin").disabled = true;
+        const email = $("email").value.trim();
+        const password = $("password").value;
+
+        if (!email || !password) {
+          throw new Error("Inserisci email e password.");
+        }
+
+        await signIn(email, password);
+        const role = await getMyRole();
+        window.location.href = (role === "barber") ? "./barber.html" : "./app.html";
+      } catch (e) {
+        toast("✗ " + e.message);
+        $("btnLogin").disabled = false;
+      }
+    };
+
+    $("btnSignup").onclick = async () => {
+      // If signup fields hidden, reveal them first
+      const signupEl = $("signupFields");
+      if (signupEl && signupEl.style.display === "none") {
+        showSignupFields(true);
+        return;
+      }
+
+      try {
+        $("btnSignup").disabled = true;
+        const email = $("email").value.trim();
+        const password = $("password").value;
+        const fullName = $("fullName").value.trim();
+        const accepted = $("terms").checked;
+
+        if (!email || !password || !fullName) {
+          throw new Error("Inserisci email, password e nome completo.");
+        }
+        if (!accepted) {
+          throw new Error("Devi accettare le condizioni per registrarti.");
+        }
+
+        await signUp(email, password, fullName);
+        toast("✓ Registrazione ok. Puoi fare il login ora.");
+        $("email").value = "";
+        $("password").value = "";
+        $("fullName").value = "";
+        $("terms").checked = false;
+        showSignupFields(false);
+        $("btnSignup").disabled = false;
+      } catch (e) {
+        toast("✗ " + e.message);
+        $("btnSignup").disabled = false;
+      }
+    };
+  </script>
+
+  <footer>
+    <p>© 2025 BeshBarber • Premium Booking System</p>
+    <p>by <strong>JB®</strong></p>
+  </footer>
+</body>
+</html>

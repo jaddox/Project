@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dashboard Barbiere • Prenotazioni</title>
+  <link rel="stylesheet" href="./css/style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <meta name="theme-color" content="#0a0e14">
+</head>
+<body>
+  <div class="nav">
+    <a class="brand" href="./barber-login.html" title="Home">
+      <div class="mark"><img src="./img/Logo.png" alt="BeshBarber"></div>
+      <div class="title">
+        <div>BeshBarber</div>
+        <small>Premium bookings</small>
+      </div>
+    </a>
+    <div class="actions">
+      <a class="btn small" href="./app.html">App Cliente</a>
+      <button id="btnLogout" class="btn small">Logout</button>
+    </div>
+  </div>
+
+  <div class="container">
+
+    <div class="grid">
+      <div class="card">
+        <div class="hd">
+          <h1 class="h1">Disponibilità</h1>
+          <p class="p">Aggiungi fasce orarie per la data selezionata (slot 30m).</p>
+        </div>
+        <div class="bd">
+          <div class="row">
+            <div class="field">
+              <label>Data</label>
+              <input id="day" type="date" />
+            </div>
+            <div class="field">
+              <label>Inizio</label>
+              <input id="start" type="time" value="09:00" />
+            </div>
+            <div class="field">
+              <label>Fine</label>
+              <input id="end" type="time" value="13:00" />
+            </div>
+            <div class="field" style="flex:0 0 160px">
+              <label>&nbsp;</label>
+              <button id="btnAddAv" class="btn primary">Aggiungi</button>
+            </div>
+          </div>
+
+          <div class="sep"></div>
+          <div id="avList" class="list"></div>
+
+          <div id="toast" class="toast"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="hd">
+          <h1 class="h1">Prenotazioni in attesa</h1>
+          <p class="p">Accetta o rifiuta le richieste (pending).</p>
+        </div>
+        <div class="bd">
+          <div id="pending" class="list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { supabase } from "./js/supabaseClient.js";
+    import { signOut, requireAuthOrRedirect, getMyRole } from "./js/auth.js";
+    import { addAvailability, listPendingBookings, setBookingStatus } from "./js/barber.js";
+
+    const $ = (id) => document.getElementById(id);
+    const toast = (m) => { $("toast").textContent = m; $("toast").classList.add("show"); };
+
+    await requireAuthOrRedirect("./barber-login.html");
+    
+    let role;
+    try {
+      role = await getMyRole();
+    } catch (e) {
+      console.error("Error getting role:", e);
+      window.location.href = "./barber-login.html";
+    }
+    
+    if (role !== "barber") {
+      window.location.href = "./app.html";
+    }
+
+    const today = new Date();
+    $("day").value = today.toISOString().slice(0,10);
+
+    async function loadAvailability() {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      const { data, error } = await supabase
+        .from("availability")
+        .select("id, day, start_time, end_time, is_active")
+        .eq("barber_id", user.id)
+        .eq("day", $("day").value)
+        .order("start_time", { ascending: true });
+
+      if (error) throw error;
+
+      $("avList").innerHTML = (data.length ? "" : `<div class="p">Nessuna fascia inserita per questa data.</div>`) + data.map(a => {
+        const st = a.start_time.slice(0,5);
+        const en = a.end_time.slice(0,5);
+        return `
+          <div class="item">
+            <div class="top">
+              <div><b>${a.day}</b> • ${st}-${en}</div>
+              <span class="pill ${a.is_active ? "accepted" : "cancelled"}">${a.is_active ? "active" : "off"}</span>
+            </div>
+            <div class="meta">Slot: 30 minuti</div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    async function loadPending() {
+      const dayISO = $("day").value;
+      const rows = await listPendingBookings(dayISO);
+
+      $("pending").innerHTML = (rows.length ? "" : `<div class="p">Nessuna richiesta pending.</div>`) + rows.map(b => {
+        const st = b.start_time.slice(0,5);
+        const en = b.end_time.slice(0,5);
+        return `
+          <div class="item">
+            <div class="top">
+              <div><b>${b.day}</b> • ${st}-${en}</div>
+              <span class="pill pending">pending</span>
+            </div>
+            <div class="meta">${b.note ? "Nota: " + b.note : "—"}</div>
+            <div class="row" style="margin-top:10px">
+              <button class="btn small ok" data-act="accept" data-id="${b.id}">Accetta</button>
+              <button class="btn small danger" data-act="reject" data-id="${b.id}">Rifiuta</button>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      $("pending").querySelectorAll("button[data-act]").forEach(btn => {
+        btn.onclick = async () => {
+          try {
+            btn.disabled = true;
+            const status = btn.dataset.act === "accept" ? "accepted" : "rejected";
+            await setBookingStatus(btn.dataset.id, status);
+            await loadPending();
+          } catch (e) { toast(e.message); }
+          finally { btn.disabled = false; }
+        };
+      });
+    }
+
+    $("btnAddAv").onclick = async () => {
+      try {
+        $("toast").classList.remove("show");
+        $("btnAddAv").disabled = true;
+        
+        // Validazione inputs
+        const day = $("day").value;
+        const start = $("start").value;
+        const end = $("end").value;
+        
+        if (!day || !start || !end) {
+          throw new Error("Compila tutti i campi: data, inizio e fine.");
+        }
+        
+        await addAvailability(day, start, end);
+        toast("✓ Disponibilità aggiunta con successo.");
+        
+        // Reset form
+        $("start").value = "09:00";
+        $("end").value = "13:00";
+        
+        await loadAvailability();
+      } catch (e) { 
+        toast("✗ " + e.message);
+      } finally {
+        $("btnAddAv").disabled = false;
+      }
+    };
+
+    $("day").onchange = async () => {
+      await loadAvailability();
+      await loadPending();
+    };
+
+    $("btnLogout").onclick = async () => {
+      await signOut();
+      window.location.href = "./barber-login.html";
+    };
+
+    // init
+    await loadAvailability();
+    await loadPending();
+  </script>
+
+  <footer>
+    <p>© 2025 BeshBarber • Premium Booking System</p>
+    <p>by <strong>JB®</strong></p>
+  </footer>
+</body>
+</html>
