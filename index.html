@@ -158,6 +158,7 @@
         .from("bookings")
         .select("id, day, start_time, end_time, status, note, rejection_reason, created_at")
         .eq("customer_id", user.id)
+        .in("status", ["pending", "accepted", "rejected"])   
         .order("day", { ascending: false })
         .order("start_time", { ascending: true })
         .limit(20);
@@ -170,7 +171,7 @@
         const translatedStatus = translateStatus(b.status);
         
         // Se rejected, mostra il motivo. Altrimenti mostra la nota del cliente
-        let detailText = "—";
+        let detailText = "";
         if (b.status === "rejected" && b.rejection_reason) {
           detailText = "❌ Motivo: " + b.rejection_reason;
         } else if (b.note) {
@@ -183,7 +184,8 @@
               <div><b>${b.day}</b> • ${st}-${en}</div>
               <span class="pill ${b.status}">${translatedStatus}</span>
             </div>
-            <div class="meta">${detailText}</div>
+            ${detailText ? `<div class="meta">${detailText}</div>` : ``}
+
           </div>
         `;
       }).join("");
