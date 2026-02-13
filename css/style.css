@@ -1195,3 +1195,65 @@ input, textarea, select {
     gap: 22px;
   }
 }
+
+
+/* =========================
+   FIX MOBILE AUTH (login)
+========================= */
+@media (max-width: 640px) {
+
+  /* Nav auth: togli posizionamenti assoluti */
+  body.auth-page .nav {
+    justify-content: space-between !important;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 16px 16px !important;
+  }
+
+  body.auth-page .nav .actions {
+    position: static !important;
+    transform: none !important;
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  /* Riduci brand su mobile */
+  .brand .mark {
+    width: 54px !important;
+    height: 54px !important;
+    border-radius: 12px;
+  }
+
+  .brand img {
+    width: 40px !important;
+    height: 40px !important;
+  }
+
+  .brand .title > div {
+    font-size: 20px !important;
+  }
+
+  .brand .title small {
+    font-size: 12px !important;
+  }
+
+  /* Container auth: meno padding e card più “tight” */
+  body.auth-page .container {
+    padding: 24px 16px 36px 16px !important;
+    margin-top: 10px !important;
+  }
+
+  body.auth-page .card {
+    max-width: 100% !important;
+  }
+
+  /* Bottoni login/registrati: full width */
+  body.auth-page .row {
+    gap: 10px;
+  }
+
+  body.auth-page .row .btn {
+    width: 100%;
+  }
+}
