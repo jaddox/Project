@@ -124,15 +124,16 @@
     const today = new Date();
     $("day").value = today.toISOString().slice(0,10);
 
-    // Helper per tradurre gli stati
-    function translateStatus(status) {
-      const translations = {
-        "pending": "in attesa",
-        "accepted": "accettata",
-        "rejected": "rifiutata"
-      };
-      return translations[status] || status;
-    }
+ function translateStatus(status) {
+  const translations = {
+    pending: "in attesa",
+    accepted: "accettata",
+    rejected: "rifiutata",
+    completed: "completata"
+  };
+  return translations[status] || status;
+}
+
 
     async function loadAvailability() {
       const { data: { user } } = await supabase.auth.getUser();
@@ -146,20 +147,55 @@
 
       if (error) throw error;
 
-      $("avList").innerHTML = (data.length ? "" : `<div class="p">Nessuna fascia inserita per questa data.</div>`) + data.map(a => {
-        const st = a.start_time.slice(0,5);
-        const en = a.end_time.slice(0,5);
-        return `
-          <div class="item">
-            <div class="top">
-              <div><b>${a.day}</b> • ${st}-${en}</div>
-              <span class="pill ${a.is_active ? "accepted" : "cancelled"}">${a.is_active ? "active" : "off"}</span>
-            </div>
-            <div class="meta">Slot: 30 minuti</div>
-          </div>
-        `;
-      }).join("");
+    $("avList").innerHTML =
+  (data.length ? "" : `<div class="p">Nessuna fascia inserita per questa data.</div>`) +
+  data.map(a => {
+    const st = a.start_time.slice(0,5);
+    const en = a.end_time.slice(0,5);
+    return `
+      <div class="item">
+        <div class="top">
+          <div><b>${a.day}</b> • ${st}-${en}</div>
+          <span class="pill ${a.is_active ? "accepted" : "cancelled"}">
+            ${a.is_active ? "active" : "off"}
+          </span>
+        </div>
+        <div class="meta">Slot: 30 minuti</div>
+
+        <div class="row" style="margin-top:10px">
+          <button class="btn small danger" data-del-av="${a.id}">🗑 Rimuovi</button>
+        </div>
+      </div>
+    `;
+  }).join("");
+
     }
+
+    // ✅ Delete fascia disponibilità
+$("avList").querySelectorAll("[data-del-av]").forEach(btn => {
+  btn.onclick = async () => {
+    if (!confirm("Vuoi rimuovere questa fascia?")) return;
+
+    try {
+      btn.disabled = true;
+
+      const { error: delErr } = await supabase
+        .from("availability")
+        .delete()
+        .eq("id", btn.dataset.delAv);
+
+      if (delErr) throw delErr;
+
+      toast("✓ Fascia rimossa.");
+      await loadAvailability();
+    } catch (e) {
+      toast("✗ " + e.message);
+    } finally {
+      btn.disabled = false;
+    }
+  };
+});
+
 
     async function loadPending() {
       const rows = await listPendingBookings();

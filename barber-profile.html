@@ -131,7 +131,21 @@
 
         $("barberName").textContent = profile?.full_name || "—";
         $("barberEmail").textContent = user.email;
-        $("totalCuts").textContent = profile?.total_cuts || 0;
+        
+        
+// ✅ TAGLI COMPLETATI REALI (dal DB bookings)
+const { count: cutsCount, error: countErr } = await supabase
+  .from("bookings")
+  .select("id", { count: "exact", head: true })
+  .eq("barber_id", user.id)
+  .eq("status", "completed");
+
+if (countErr) throw countErr;
+
+$("totalCuts").textContent = (cutsCount ?? 0);
+
+
+
         $("barberLevel").textContent = profile?.current_level || 1;
 
         // Calcola XP per il livello

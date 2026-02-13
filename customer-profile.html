@@ -128,6 +128,9 @@
         if (!user) throw new Error("Not logged in");
 
         // Carica profilo
+
+        
+
         const { data: profile, error: profileErr } = await supabase
           .from("profiles")
           .select("full_name, total_cuts, current_xp, current_level")
@@ -138,7 +141,20 @@
 
         $("clientName").textContent = profile?.full_name || "—";
         $("clientEmail").textContent = user.email;
-        $("totalCuts").textContent = profile?.total_cuts || 0;
+
+
+   // ✅ TAGLI COMPLETATI REALI (dal DB bookings)
+const { count: cutsCount, error: countErr } = await supabase
+  .from("bookings")
+  .select("id", { count: "exact", head: true })
+  .eq("customer_id", user.id)
+  .eq("status", "completed");
+
+if (countErr) throw countErr;
+
+$("totalCuts").textContent = (cutsCount ?? 0);
+
+
         $("clientLevel").textContent = profile?.current_level || 1;
 
         // Calcola XP per il livello
