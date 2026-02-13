@@ -224,15 +224,54 @@
       
       $("bookingDetailContent").innerHTML = detailHTML;
       
-      // Mostra il bottone "Rimuovi" solo se rejected
-      if (booking.status === "rejected") {
-        $("removeBookingBtn").style.display = "block";
-        $("removeBookingBtn").dataset.bookingId = booking.id;
-      } else {
-        $("removeBookingBtn").style.display = "none";
-      }
-      
-      $("bookingDetailModal").style.display = "flex";
+    // Mostra il bottone "Rimuovi" solo se rejected
+if (booking.status === "rejected") {
+  const btn = $("removeBookingBtn");
+  btn.style.display = "inline-flex";     // meglio di "block" per bottoni
+  btn.dataset.bookingId = booking.id;
+
+  // 🔥 Bind sicuro: resetta eventuali handler vecchi e riassegna
+  btn.onclick = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    console.log("CLICK removeBookingBtn", btn.dataset.bookingId); // debug visibile
+
+    if (!confirm("Sei sicuro di voler rimuovere questa prenotazione rifiutata?")) return;
+
+    try {
+      btn.disabled = true;
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Utente non loggato.");
+
+      const bookingId = btn.dataset.bookingId;
+
+      const { error } = await supabase
+        .from("bookings")
+        .delete()
+        .eq("id", bookingId)
+        .eq("customer_id", user.id)
+        .eq("status", "rejected");
+
+      if (error) throw error;
+
+      toast("✓ Prenotazione rimossa.");
+      $("bookingDetailModal").style.display = "none";
+      await loadMyBookings();
+    } catch (err) {
+      console.error("Delete booking error:", err);
+      toast("✗ " + (err.message || "Errore cancellazione"));
+    } finally {
+      btn.disabled = false;
+    }
+  };
+} else {
+  const btn = $("removeBookingBtn");
+  btn.style.display = "none";
+  btn.onclick = null; // pulizia
+}
+
     }
 
     async function loadSlots() {
