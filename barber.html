@@ -169,9 +169,8 @@
     `;
   }).join("");
 
-    }
 
-    // ✅ Delete fascia disponibilità
+  // ✅ Bind dei click "Rimuovi" (DEVE stare dopo il render)
 $("avList").querySelectorAll("[data-del-av]").forEach(btn => {
   btn.onclick = async () => {
     if (!confirm("Vuoi rimuovere questa fascia?")) return;
@@ -179,22 +178,30 @@ $("avList").querySelectorAll("[data-del-av]").forEach(btn => {
     try {
       btn.disabled = true;
 
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Non loggato.");
+
       const { error: delErr } = await supabase
         .from("availability")
         .delete()
-        .eq("id", btn.dataset.delAv);
+        .eq("id", btn.dataset.delAv)
+        .eq("barber_id", user.id); // sicurezza + aiuta RLS
 
       if (delErr) throw delErr;
 
       toast("✓ Fascia rimossa.");
       await loadAvailability();
     } catch (e) {
-      toast("✗ " + e.message);
+      console.error("Delete availability error:", e);
+      toast("✗ " + (e.message || "Errore"));
     } finally {
       btn.disabled = false;
     }
   };
 });
+
+    }
+
 
 
     async function loadPending() {
