@@ -106,11 +106,16 @@
     } catch (e) {
       console.error("Error getting role:", e);
       window.location.href = "./login.html";
+      throw new Error("Stopped execution");
     }
     
-    if (role !== "customer") {
+    // Se sei barbiere, vai a barber.html
+    if (role === "barber") {
       window.location.href = "./barber.html";
+      throw new Error("Stopped execution");
     }
+    
+    // Se sei cliente, continua normalmente (non fare redirect)
 
     // Carica il nome del customer dal profilo
     try {
