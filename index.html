@@ -398,6 +398,13 @@ $("removeBookingBtn").onclick = async (e) => {
 };
 
 
+document.addEventListener("click", (e) => {
+  if (e.target && e.target.id === "removeBookingBtn") {
+    console.log("DEBUG: click intercettato su removeBookingBtn");
+  }
+}, true); // <- CAPTURE
+
+
 // init
 await loadSlots();
 await loadMyBookings();
