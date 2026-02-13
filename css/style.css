@@ -1054,3 +1054,144 @@ footer a {
 footer a:hover {
   text-decoration: underline;
 }
+
+/* =========================
+   Mobile / Responsive Fix
+   Incolla in fondo a style.css
+========================= */
+
+/* Base: evita overflow orizzontale su mobile */
+html, body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Container più stretto su mobile */
+.container {
+  width: 100%;
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+/* Navbar: va a capo e bottoni impilati */
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.nav .brand {
+  min-width: 180px;
+}
+
+.nav .actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* Griglie: su mobile -> 1 colonna */
+.grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+/* Se hai .grid.single, rimane 1 colonna comunque */
+.grid.single {
+  grid-template-columns: 1fr;
+}
+
+/* Card: padding più compatto */
+.card .bd {
+  padding: 16px !important;
+}
+
+.card .hd {
+  padding: 16px !important;
+}
+
+/* Row (form in alto): su mobile impila i campi */
+.row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.row .field {
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
+/* Input e bottoni full-width su mobile quando serve */
+input, textarea, select {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.btn {
+  max-width: 100%;
+}
+
+/* Slots: layout più compatto su mobile */
+.slots {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.slot {
+  width: 100%;
+}
+
+/* Liste scrollable: su mobile riduci altezza e evita "troppo lungo" */
+.list.scrollable {
+  max-height: 420px;
+  overflow: auto;
+}
+
+/* Modal: centrato bene e scrollabile su schermi piccoli */
+.modal {
+  padding: 16px;
+}
+
+.modal-content {
+  width: 100%;
+  max-width: 520px;
+  max-height: 85vh;
+  overflow: auto;
+}
+
+/* Tipografia più leggibile su mobile */
+@media (max-width: 640px) {
+  .h1 { font-size: 22px !important; }
+  .h2 { font-size: 18px !important; }
+  .p  { font-size: 13px !important; }
+
+  /* bottone conferma prenotazione: full width sotto i campi */
+  #btnConfirm {
+    width: 100%;
+  }
+
+  /* riga selezione slot: mettila in colonna */
+  #selectedInfo {
+    margin-bottom: 10px;
+  }
+
+  /* se hai row con justify-content space-between */
+  .row[style*="justify-content:space-between"] {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+}
+
+/* Tablet: 2 colonne solo quando c'è spazio */
+@media (min-width: 900px) {
+  .grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 22px;
+  }
+}
