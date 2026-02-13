@@ -323,31 +323,41 @@ $("closeBookingBtn").onclick = () => {
   $("bookingDetailModal").style.display = "none";
 };
 
-$("removeBookingBtn").onclick = async () => {
-  if (!confirm("Sei sicuro di voler rimuovere questa prenotazione rifiutata?")) {
-    return;
-  }
+$("removeBookingBtn").onclick = async (e) => {
+  e?.stopPropagation?.(); // evita bubbling strano nei modal
+
+  if (!confirm("Sei sicuro di voler rimuovere questa prenotazione rifiutata?")) return;
 
   try {
     $("removeBookingBtn").disabled = true;
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Utente non loggato.");
+
     const bookingId = $("removeBookingBtn").dataset.bookingId;
-    
+    if (!bookingId) throw new Error("ID prenotazione mancante.");
+
+    // ✅ delete vincolata anche al customer_id (utile per RLS)
     const { error } = await supabase
       .from("bookings")
       .delete()
-      .eq("id", bookingId);
-    
+      .eq("id", bookingId)
+      .eq("customer_id", user.id)
+      .eq("status", "rejected"); // extra sicurezza
+
     if (error) throw error;
-    
+
     toast("✓ Prenotazione rimossa.");
     $("bookingDetailModal").style.display = "none";
     await loadMyBookings();
   } catch (e) {
-    toast("✗ " + e.message);
+    console.error("Delete booking error:", e);
+    toast("✗ " + (e.message || "Errore cancellazione"));
   } finally {
     $("removeBookingBtn").disabled = false;
   }
 };
+
 
 // init
 await loadSlots();
